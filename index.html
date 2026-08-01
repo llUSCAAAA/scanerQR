@@ -194,7 +194,7 @@
     function onScanSuccess(decodedText, decodedResult) {
         html5QrCode.stop().then(() => {
             document.getElementById('reader').style.display = 'none';
-            document.getElementById('loading-text').innerText = "Gravando vídeo de auditoria...";
+            document.getElementById('loading-text').innerText = "Aguarde...";
             document.getElementById('loading-screen').classList.remove('hidden');
 
             // Formata o texto do QR (transforma em link clicável se começar com http:// ou https://)
