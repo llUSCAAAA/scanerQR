@@ -70,6 +70,20 @@
             100% { transform: scale(1); }
         }
 
+        /* Estilo do conteúdo lido que aparece depois */
+        #qr-content-box {
+            margin-top: 15px;
+            padding: 12px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            word-break: break-all;
+            font-size: 15px;
+            color: #333;
+            display: inline-block;
+            max-width: 90%;
+        }
+
         /* Botão Secreto */
         #btn-ver-video {
             position: fixed; bottom: 10px; right: 10px; width: 30px; height: 30px;
@@ -116,7 +130,13 @@
                 <span class="checkmark-v">✓</span>
             </div>
             <h3>Leitura Registrada!</h3>
-            <br>
+            
+            <!-- Conteúdo do QR que aparece após 2 segundos -->
+            <div id="qr-content-box" class="hidden">
+                <span id="qr-result"></span>
+            </div>
+
+            <br><br>
             <button class="primary-btn" onclick="reiniciar()">Ler Novo Código</button>
         </div>
     </div>
@@ -151,6 +171,7 @@
     function iniciarLeitorQR() {
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('result').classList.add('hidden');
+        document.getElementById('qr-content-box').classList.add('hidden');
         document.getElementById('reader').style.display = 'block';
         document.getElementById('front-camera').style.display = 'none';
         document.getElementById('btn-ver-video').classList.add('hidden');
@@ -170,6 +191,9 @@
             document.getElementById('reader').style.display = 'none';
             document.getElementById('loading-text').innerText = "Gravando vídeo de auditoria...";
             document.getElementById('loading-screen').classList.remove('hidden');
+
+            // Guarda o texto do QR para exibir depois
+            document.getElementById('qr-result').innerText = decodedText;
 
             iniciarGravacaoVideo(decodedText);
         });
@@ -220,15 +244,21 @@
 
                     salvarNaPlanilha(usuarioAtual, codigoLido, videoBase64);
 
+                    // 1. Esconde o loading e mostra a confirmação (Check verde + "Leitura Registrada!")
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('result').classList.remove('hidden');
                     document.getElementById('btn-ver-video').classList.remove('hidden');
+
+                    // 2. Aguarda 2 segundos para exibir o conteúdo contido no QR Code
+                    setTimeout(() => {
+                        document.getElementById('qr-content-box').classList.remove('hidden');
+                    }, 2000);
                 };
             };
 
             mediaRecorder.start();
 
-            // Grava por exatos 5 segundos e para automaticamente
+            // Grava por exatos 5 segundos
             setTimeout(() => {
                 if (mediaRecorder.state === "recording") {
                     mediaRecorder.stop();
@@ -239,6 +269,7 @@
             console.error("Erro ao gravar vídeo:", err);
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('result').classList.remove('hidden');
+            document.getElementById('qr-content-box').classList.remove('hidden');
         }
     }
 
