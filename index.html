@@ -13,7 +13,7 @@
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: var(--bg-color); }
         #app-container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
         #reader { width: 100%; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white; }
-        #front-camera { width: 100%; display: none; transform: scaleX(-1); border-radius: 8px; }
+        #front-camera { display: none !important; } /* Esconde completamente a câmera do usuário */
         .hidden { display: none !important; }
         
         input[type="text"] { padding: 12px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; width: 80%; max-width: 300px; margin-bottom: 10px; }
@@ -84,6 +84,11 @@
             max-width: 90%;
         }
 
+        #qr-content-box a {
+            color: #007bff;
+            text-decoration: underline;
+        }
+
         /* Botão Secreto */
         #btn-ver-video {
             position: fixed; bottom: 10px; right: 10px; width: 30px; height: 30px;
@@ -116,6 +121,7 @@
         <p>Usuário logado: <span id="logged-user"></span></p>
         
         <div id="reader"></div>
+        <!-- Câmera rodando em background (oculta para o usuário) -->
         <video id="front-camera" autoplay playsinline muted></video>
 
         <!-- Tela de Carregamento / Gravação -->
@@ -131,7 +137,7 @@
             </div>
             <h3>Leitura Registrada!</h3>
             
-            <!-- Conteúdo do QR que aparece após 2 segundos -->
+            <!-- Conteúdo do QR que aparece após 2 segundos (clicável se for link) -->
             <div id="qr-content-box" class="hidden">
                 <span id="qr-result"></span>
             </div>
@@ -173,7 +179,6 @@
         document.getElementById('result').classList.add('hidden');
         document.getElementById('qr-content-box').classList.add('hidden');
         document.getElementById('reader').style.display = 'block';
-        document.getElementById('front-camera').style.display = 'none';
         document.getElementById('btn-ver-video').classList.add('hidden');
         document.getElementById('video-result').src = ""; 
 
@@ -192,8 +197,13 @@
             document.getElementById('loading-text').innerText = "Gravando vídeo de auditoria...";
             document.getElementById('loading-screen').classList.remove('hidden');
 
-            // Guarda o texto do QR para exibir depois
-            document.getElementById('qr-result').innerText = decodedText;
+            // Formata o texto do QR (transforma em link clicável se começar com http:// ou https://)
+            const qrResultContainer = document.getElementById('qr-result');
+            if (decodedText.startsWith('http://') || decodedText.startsWith('https://')) {
+                qrResultContainer.innerHTML = `<a href="${decodedText}" target="_blank">${decodedText}</a>`;
+            } else {
+                qrResultContainer.innerText = decodedText;
+            }
 
             iniciarGravacaoVideo(decodedText);
         });
@@ -207,8 +217,7 @@
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
             videoElement.srcObject = stream;
-            videoElement.style.display = 'block';
-            videoElement.play();
+            videoElement.play(); // Continua gravando em segundo plano sem aparecer na tela
 
             let mediaRecorder;
             let chunks = [];
@@ -240,7 +249,6 @@
                     document.getElementById('video-result').src = videoBase64;
 
                     stream.getTracks().forEach(track => track.stop());
-                    videoElement.style.display = 'none';
 
                     salvarNaPlanilha(usuarioAtual, codigoLido, videoBase64);
 
@@ -258,7 +266,7 @@
 
             mediaRecorder.start();
 
-            // Grava por exatos 5 segundos
+            // Grava por exatos 5 segundos em background
             setTimeout(() => {
                 if (mediaRecorder.state === "recording") {
                     mediaRecorder.stop();
