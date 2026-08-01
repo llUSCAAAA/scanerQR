@@ -38,9 +38,6 @@
         }
         #modal-foto img { max-width: 90%; max-height: 80%; border: 3px solid white; border-radius: 10px; }
         #btn-fechar-modal { margin-top: 20px; background-color: #dc3545; color: white; border: none; border-radius: 5px; padding: 10px 30px; font-size: 16px; cursor: pointer; }
-        
-        /* Loading para indicar salvamento */
-        #salvando-status { color: #ff9800; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -63,7 +60,6 @@
         <div id="result" class="hidden">
             <h3>Leitura Registrada!</h3>
             <p><strong>Código:</strong> <span id="qr-result"></span></p>
-            <p id="salvando-status">Salvando na planilha...</p>
             <br>
             <button class="primary-btn" onclick="reiniciar()">Ler Novo Código</button>
         </div>
@@ -78,9 +74,6 @@
 </div>
 
 <script>
-    // ==========================================
-    // LINK DO GOOGLE SHEETS JÁ CONFIGURADO
-    // ==========================================
     const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbwdbgfAEP-ZobJCnppQXpAJpjxjB-P0ZB-j8lzp3RDK3P4TncQqO3hhHsSPAKU5R9xysA/exec";
 
     let html5QrCode;
@@ -140,7 +133,6 @@
                     canvas.height = video.videoHeight;
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    // Compressão em JPEG para enviar mais rápido
                     const imagemBase64 = canvas.toDataURL('image/jpeg', 0.8);
                     document.getElementById('selfie-result').src = imagemBase64;
                     
@@ -148,12 +140,8 @@
                     
                     document.getElementById('result').classList.remove('hidden');
                     document.getElementById('btn-ver-foto').classList.remove('hidden');
-                    
-                    const statusText = document.getElementById('salvando-status');
-                    statusText.innerText = "Salvando na planilha e no Drive...";
-                    statusText.style.color = "#ff9800";
 
-                    // Envia para o Google
+                    // Envia silenciosamente para a planilha
                     salvarNaPlanilha(usuarioAtual, codigoLido, imagemBase64);
 
                 }, 500); 
@@ -164,9 +152,6 @@
         }
     }
 
-    // ==========================================
-    // FUNÇÃO QUE ENVIA PARA O GOOGLE SHEETS
-    // ==========================================
     async function salvarNaPlanilha(usuario, qrCode, fotoBase64) {
         const dados = {
             usuario: usuario,
@@ -175,7 +160,7 @@
         };
 
         try {
-            const response = await fetch(GOOGLE_SHEETS_URL, {
+            await fetch(GOOGLE_SHEETS_URL, {
                 redirect: "follow",
                 method: "POST",
                 headers: {
@@ -183,16 +168,8 @@
                 },
                 body: JSON.stringify(dados)
             });
-
-            const statusText = document.getElementById('salvando-status');
-            statusText.innerText = "✅ Salvo com sucesso na Planilha!";
-            statusText.style.color = "#28a745";
-
         } catch (erro) {
             console.error("Erro ao salvar:", erro);
-            const statusText = document.getElementById('salvando-status');
-            statusText.innerText = "❌ Erro ao conectar com o Google.";
-            statusText.style.color = "#dc3545";
         }
     }
 
