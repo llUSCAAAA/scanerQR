@@ -4,55 +4,100 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner Auditoria</title>
-    <!-- Biblioteca para ler o QR Code -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        #app-container { max-width: 500px; margin: 0 auto; }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; }
+        #app-container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
         #reader { width: 100%; margin-bottom: 20px; }
         #front-camera { width: 100%; display: none; transform: scaleX(-1); }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
+        
+        /* Estilo do botão flutuante (círculo) */
+        #btn-ver-foto {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            z-index: 100;
+        }
+
+        /* Estilo da janela sobreposta (modal) para ver a foto */
+        #modal-foto {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #modal-foto img {
+            max-width: 90%;
+            max-height: 80%;
+            border: 3px solid white;
+            border-radius: 10px;
+        }
+        #btn-fechar-modal {
+            margin-top: 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 30px;
+        }
     </style>
 </head>
 <body>
 
 <div id="app-container">
-    <!-- TELA DE LOGIN SIMULADA -->
     <div id="login-screen">
         <h2>Autenticação</h2>
         <input type="text" id="user-name" placeholder="Digite seu usuário" required>
         <button onclick="fazerLogin()">Entrar</button>
     </div>
 
-    <!-- TELA DO SCANNER -->
     <div id="scanner-screen" class="hidden">
         <h2>Leia o QR Code</h2>
         <p>Usuário logado: <span id="logged-user"></span></p>
         
-        <!-- Visor da Câmera Traseira (QR Code) -->
         <div id="reader"></div>
         
-        <!-- Visor Invisível da Câmera Frontal -->
         <video id="front-camera" autoplay playsinline></video>
         <canvas id="canvas" style="display:none;"></canvas>
 
         <div id="result" class="hidden">
-            <h3>Resultado salvo!</h3>
+            <h3>Leitura Registrada com Sucesso!</h3>
             <p><strong>Código lido:</strong> <span id="qr-result"></span></p>
-            <p><strong>Foto tirada:</strong></p>
-            <img id="selfie-result" width="200" style="border: 2px solid green;">
             <br>
             <button onclick="reiniciar()">Ler Novo Código</button>
         </div>
     </div>
 </div>
 
+<button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Ver Foto">📸</button>
+
+<div id="modal-foto">
+    <img id="selfie-result" src="" alt="Foto de auditoria">
+    <button id="btn-fechar-modal" onclick="fecharModal()">Fechar Foto</button>
+</div>
+
 <script>
-    let html5QrcodeScanner;
+    let html5QrCode;
     let usuarioAtual = "";
 
-    // 1. FUNÇÃO DE LOGIN
     function fazerLogin() {
         const input = document.getElementById('user-name').value;
         if (input) {
@@ -66,83 +111,100 @@
         }
     }
 
-    // 2. INICIAR LEITOR DE QR CODE (Câmera Traseira)
     function iniciarLeitorQR() {
+        // Esconde resultados anteriores e oculta o botão da foto
         document.getElementById('result').classList.add('hidden');
         document.getElementById('reader').style.display = 'block';
+        document.getElementById('btn-ver-foto').classList.add('hidden');
+        document.getElementById('selfie-result').src = "";
 
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", { fps: 10, qrbox: 250 }, false);
+        // Usa a classe manual para forçar configurações específicas
+        html5QrCode = new Html5Qrcode("reader");
         
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        // facingMode: "environment" força o uso da câmera traseira
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            console.error("Erro ao iniciar câmera traseira:", err);
+            alert("Não foi possível acessar a câmera traseira do aparelho.");
+        });
     }
 
-    // 3. QUANDO O QR CODE FOR LIDO
     function onScanSuccess(decodedText, decodedResult) {
-        // Pára o leitor de QR Code para liberar a câmera
-        html5QrcodeScanner.clear().then(() => {
+        // Pára a câmera traseira
+        html5QrCode.stop().then(() => {
             document.getElementById('reader').style.display = 'none';
             document.getElementById('qr-result').innerText = decodedText;
             
-            // Inicia a captura da foto frontal
+            // Inicia captura frontal invisível
             capturarFotoFrontal();
+        }).catch(err => {
+            console.error("Erro ao parar a câmera de QR Code", err);
         });
     }
 
     function onScanFailure(error) {
-        // Ignora erros contínuos enquanto busca um código
+        // Erros de leitura contínuos são normais, o scanner continua procurando
     }
 
-    // 4. CAPTURAR FOTO COM A CÂMERA FRONTAL
     async function capturarFotoFrontal() {
         const video = document.getElementById('front-camera');
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
 
         try {
-            // Solicita acesso à câmera frontal (facingMode: "user")
+            // Pede acesso à câmera frontal
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
             video.srcObject = stream;
             
-            // Aguarda o vídeo carregar para tirar a foto
             video.onloadedmetadata = () => {
                 video.play();
                 
-                // Dá um pequeno atraso de meio segundo para a câmera focar e clarear
+                // Aguarda 500ms para a câmera ajustar o foco e a luz
                 setTimeout(() => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    // Desenha o quadro atual do vídeo no canvas
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    // Transforma a imagem em base64 (texto) para poder salvar
                     const imagemBase64 = canvas.toDataURL('image/png');
+                    
+                    // Coloca a foto capturada na imagem do modal (que está oculta no momento)
                     document.getElementById('selfie-result').src = imagemBase64;
                     
                     // Desliga a câmera frontal
                     stream.getTracks().forEach(track => track.stop());
                     
-                    // Mostra o resultado final
+                    // Mostra a tela de sucesso
                     document.getElementById('result').classList.remove('hidden');
-
-                    // AQUI VOCÊ ENVIARIA OS DADOS PARA O SEU BANCO DE DADOS
-                    console.log("Enviar para o banco: ", {
-                        usuario: usuarioAtual,
-                        qrCode: document.getElementById('qr-result').innerText,
-                        fotoRosto: imagemBase64,
-                        dataHora: new Date()
-                    });
+                    
+                    // Mostra o botão flutuante
+                    document.getElementById('btn-ver-foto').classList.remove('hidden');
 
                 }, 500); 
             };
         } catch (err) {
             console.error("Erro ao acessar câmera frontal: ", err);
             alert("Foi necessário acesso à câmera frontal para registrar a leitura.");
+            
+            // Mostra o resultado mesmo se a câmera frontal falhar (opcional)
+            document.getElementById('result').classList.remove('hidden');
         }
     }
 
     function reiniciar() {
         iniciarLeitorQR();
+    }
+
+    // Funções para controlar a exibição da foto (Modal)
+    function abrirModal() {
+        document.getElementById('modal-foto').style.display = 'flex';
+    }
+
+    function fecharModal() {
+        document.getElementById('modal-foto').style.display = 'none';
     }
 </script>
 </body>
