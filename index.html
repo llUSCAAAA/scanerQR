@@ -4,16 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner Auditoria</title>
+    <!-- Biblioteca para ler o QR Code -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: #f4f4f9; }
         #app-container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
-        #reader { width: 100%; margin-bottom: 20px; }
+        #reader { width: 100%; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         #front-camera { width: 100%; display: none; transform: scaleX(-1); }
         .hidden { display: none !important; }
-        button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
         
-        /* Estilo do botão flutuante (círculo) */
+        /* Estilos globais para inputs e botões padrão */
+        input[type="text"] { padding: 12px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; width: 80%; max-width: 300px; margin-bottom: 10px; }
+        button.primary-btn { padding: 12px 24px; font-size: 16px; margin: 5px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; transition: background-color 0.2s; }
+        button.primary-btn:hover { background-color: #218838; }
+        
+        h2 { color: #333; }
+        #logged-user { font-weight: bold; color: #007bff; }
+
+        /* Estilo do botão flutuante (círculo) - QUASE INVISÍVEL */
         #btn-ver-foto {
             position: fixed;
             bottom: 20px;
@@ -21,16 +29,25 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background-color: #007bff;
-            color: white;
+            background-color: rgba(0, 123, 255, 0.5); /* Azul translúcido */
+            color: rgba(255, 255, 255, 0.6); /* Branco translúcido */
             border: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 24px;
             z-index: 100;
+            
+            /* --- AQUI ESTÁ O SEGREDO --- */
+            opacity: 0.05; /* 5% de visibilidade (quase invisível) */
+            transition: opacity 0.1s ease; /* Transição rápida para o clique */
+            -webkit-tap-highlight-color: transparent; /* Remove o flash azul do toque no Android/iOS */
+        }
+
+        /* Quando o botão é clicado/tocado, ele fica visível temporariamente */
+        #btn-ver-foto:active {
+            opacity: 1;
         }
 
         /* Estilo da janela sobreposta (modal) para ver a foto */
@@ -49,6 +66,7 @@
             max-height: 80%;
             border: 3px solid white;
             border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
         #btn-fechar-modal {
             margin-top: 20px;
@@ -57,38 +75,50 @@
             border: none;
             border-radius: 5px;
             padding: 10px 30px;
+            font-size: 16px;
+            cursor: pointer;
         }
+        #btn-fechar-modal:hover { background-color: #c82333; }
     </style>
 </head>
 <body>
 
 <div id="app-container">
+    <!-- TELA DE LOGIN SIMULADA -->
     <div id="login-screen">
         <h2>Autenticação</h2>
         <input type="text" id="user-name" placeholder="Digite seu usuário" required>
-        <button onclick="fazerLogin()">Entrar</button>
+        <br>
+        <button class="primary-btn" onclick="fazerLogin()">Entrar</button>
     </div>
 
+    <!-- TELA DO SCANNER -->
     <div id="scanner-screen" class="hidden">
         <h2>Leia o QR Code</h2>
         <p>Usuário logado: <span id="logged-user"></span></p>
         
+        <!-- Visor da Câmera Traseira (QR Code) -->
         <div id="reader"></div>
         
+        <!-- Visor Invisível da Câmera Frontal -->
         <video id="front-camera" autoplay playsinline></video>
         <canvas id="canvas" style="display:none;"></canvas>
 
+        <!-- Resultado após leitura -->
         <div id="result" class="hidden">
             <h3>Leitura Registrada com Sucesso!</h3>
             <p><strong>Código lido:</strong> <span id="qr-result"></span></p>
             <br>
-            <button onclick="reiniciar()">Ler Novo Código</button>
+            <button class="primary-btn" onclick="reiniciar()">Ler Novo Código</button>
         </div>
     </div>
 </div>
 
-<button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Ver Foto">📸</button>
+<!-- Botão Flutuante que só aparece após a foto -->
+<!-- Coloquei um ícone mais discreto também -->
+<button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Ver Foto">👁️‍🗨️</button>
 
+<!-- Janela sobreposta para exibir a foto do usuário -->
 <div id="modal-foto">
     <img id="selfie-result" src="" alt="Foto de auditoria">
     <button id="btn-fechar-modal" onclick="fecharModal()">Fechar Foto</button>
@@ -112,11 +142,11 @@
     }
 
     function iniciarLeitorQR() {
-        // Esconde resultados anteriores e oculta o botão da foto
+        // Esconde resultados anteriores, oculta o botão da foto e reinicia a imagem do modal
         document.getElementById('result').classList.add('hidden');
         document.getElementById('reader').style.display = 'block';
         document.getElementById('btn-ver-foto').classList.add('hidden');
-        document.getElementById('selfie-result').src = "";
+        document.getElementById('selfie-result').src = ""; // Limpa a foto anterior
 
         // Usa a classe manual para forçar configurações específicas
         html5QrCode = new Html5Qrcode("reader");
@@ -180,27 +210,33 @@
                     // Mostra a tela de sucesso
                     document.getElementById('result').classList.remove('hidden');
                     
-                    // Mostra o botão flutuante
+                    // Mostra o botão flutuante (agora quase invisível)
                     document.getElementById('btn-ver-foto').classList.remove('hidden');
 
                 }, 500); 
             };
         } catch (err) {
             console.error("Erro ao acessar câmera frontal: ", err);
-            alert("Foi necessário acesso à câmera frontal para registrar a leitura.");
+            // alert("Foi necessário acesso à câmera frontal para registrar a leitura.");
             
-            // Mostra o resultado mesmo se a câmera frontal falhar (opcional)
+            // Mostra o resultado mesmo se a câmera frontal falhar
             document.getElementById('result').classList.remove('hidden');
         }
     }
 
     function reiniciar() {
-        iniciarLeitorQR();
+        if (html5QrCode && html5QrCode.isScanning) {
+             html5QrCode.stop().then(() => iniciarLeitorQR());
+        } else {
+            iniciarLeitorQR();
+        }
     }
 
     // Funções para controlar a exibição da foto (Modal)
     function abrirModal() {
-        document.getElementById('modal-foto').style.display = 'flex';
+        if (document.getElementById('selfie-result').src) {
+            document.getElementById('modal-foto').style.display = 'flex';
+        }
     }
 
     function fecharModal() {
