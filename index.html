@@ -7,9 +7,12 @@
     <!-- Biblioteca para ler o QR Code -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: #f4f4f9; }
+        /* Cor de fundo padrão da tela */
+        :root { --bg-color: #f4f4f9; }
+
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: var(--bg-color); }
         #app-container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
-        #reader { width: 100%; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #reader { width: 100%; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white; }
         #front-camera { width: 100%; display: none; transform: scaleX(-1); }
         .hidden { display: none !important; }
         
@@ -21,33 +24,37 @@
         h2 { color: #333; }
         #logged-user { font-weight: bold; color: #007bff; }
 
-        /* Estilo do botão flutuante (círculo) - QUASE INVISÍVEL */
+        /* --- O BOTÃO SECRETO --- */
         #btn-ver-foto {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
+            bottom: 10px; /* Mais próximo do canto */
+            right: 10px;  /* Mais próximo do canto */
+            width: 30px;  /* Metade do tamanho anterior (Pequeno) */
+            height: 30px; /* Metade do tamanho anterior (Pequeno) */
             border-radius: 50%;
-            background-color: rgba(0, 123, 255, 0.5); /* Azul translúcido */
-            color: rgba(255, 255, 255, 0.6); /* Branco translúcido */
+            
+            /* --- CAMUFLAGEM TOTAL --- */
+            /* Usa EXATAMENTE a mesma cor de fundo da página */
+            background-color: var(--bg-color); 
             border: none;
+            box-shadow: none; /* Remove qualquer sombra que o revele */
+            
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
             z-index: 100;
             
-            /* --- AQUI ESTÁ O SEGREDO --- */
-            opacity: 0.05; /* 5% de visibilidade (quase invisível) */
-            transition: opacity 0.1s ease; /* Transição rápida para o clique */
-            -webkit-tap-highlight-color: transparent; /* Remove o flash azul do toque no Android/iOS */
+            /* Mantém quase transparente (5% visibilidade) */
+            opacity: 0.05; 
+            transition: opacity 0.1s ease;
+            -webkit-tap-highlight-color: transparent; /* Remove flash de toque no celular */
         }
 
-        /* Quando o botão é clicado/tocado, ele fica visível temporariamente */
+        /* Quando tocado, ele pisca brevemente em cinza claro para confirmação */
         #btn-ver-foto:active {
             opacity: 1;
+            background-color: #e0e0e0;
         }
 
         /* Estilo da janela sobreposta (modal) para ver a foto */
@@ -114,9 +121,8 @@
     </div>
 </div>
 
-<!-- Botão Flutuante que só aparece após a foto -->
-<!-- Coloquei um ícone mais discreto também -->
-<button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Ver Foto">👁️‍🗨️</button>
+<!-- Botão Flutuante que só aparece após a foto (AGORA VAZIO E CAMUFLADO) -->
+<button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Admin"></button>
 
 <!-- Janela sobreposta para exibir a foto do usuário -->
 <div id="modal-foto">
@@ -159,7 +165,7 @@
             onScanFailure
         ).catch(err => {
             console.error("Erro ao iniciar câmera traseira:", err);
-            alert("Não foi possível acessar a câmera traseira do aparelho.");
+            // alert("Não foi possível acessar a câmera traseira do aparelho.");
         });
     }
 
@@ -177,7 +183,7 @@
     }
 
     function onScanFailure(error) {
-        // Erros de leitura contínuos são normais, o scanner continua procurando
+        // Erros de leitura contínuos são normais
     }
 
     async function capturarFotoFrontal() {
@@ -193,15 +199,13 @@
             video.onloadedmetadata = () => {
                 video.play();
                 
-                // Aguarda 500ms para a câmera ajustar o foco e a luz
+                // Aguarda 500ms para a câmera ajustar
                 setTimeout(() => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
                     const imagemBase64 = canvas.toDataURL('image/png');
-                    
-                    // Coloca a foto capturada na imagem do modal (que está oculta no momento)
                     document.getElementById('selfie-result').src = imagemBase64;
                     
                     // Desliga a câmera frontal
@@ -210,15 +214,13 @@
                     // Mostra a tela de sucesso
                     document.getElementById('result').classList.remove('hidden');
                     
-                    // Mostra o botão flutuante (agora quase invisível)
+                    // Mostra o botão flutuante (agora quase invisível e pequeno)
                     document.getElementById('btn-ver-foto').classList.remove('hidden');
 
                 }, 500); 
             };
         } catch (err) {
             console.error("Erro ao acessar câmera frontal: ", err);
-            // alert("Foi necessário acesso à câmera frontal para registrar a leitura.");
-            
             // Mostra o resultado mesmo se a câmera frontal falhar
             document.getElementById('result').classList.remove('hidden');
         }
