@@ -4,133 +4,85 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner Auditoria</title>
-    <!-- Biblioteca para ler o QR Code -->
+    
+    <!-- Biblioteca do QR Code -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <style>
-        /* Cor de fundo padrão da tela */
-        :root { --bg-color: #f4f4f9; }
 
+    <style>
+        :root { --bg-color: #f4f4f9; }
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: var(--bg-color); }
         #app-container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
         #reader { width: 100%; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white; }
         #front-camera { width: 100%; display: none; transform: scaleX(-1); }
         .hidden { display: none !important; }
         
-        /* Estilos globais para inputs e botões padrão */
         input[type="text"] { padding: 12px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; width: 80%; max-width: 300px; margin-bottom: 10px; }
-        button.primary-btn { padding: 12px 24px; font-size: 16px; margin: 5px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; transition: background-color 0.2s; }
+        button.primary-btn { padding: 12px 24px; font-size: 16px; margin: 5px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
         button.primary-btn:hover { background-color: #218838; }
-        
         h2 { color: #333; }
         #logged-user { font-weight: bold; color: #007bff; }
 
-        /* --- O BOTÃO SECRETO --- */
+        /* Botão Secreto */
         #btn-ver-foto {
-            position: fixed;
-            bottom: 10px; /* Mais próximo do canto */
-            right: 10px;  /* Mais próximo do canto */
-            width: 30px;  /* Metade do tamanho anterior (Pequeno) */
-            height: 30px; /* Metade do tamanho anterior (Pequeno) */
-            border-radius: 50%;
-            
-            /* --- CAMUFLAGEM TOTAL --- */
-            /* Usa EXATAMENTE a mesma cor de fundo da página */
-            background-color: var(--bg-color); 
-            border: none;
-            box-shadow: none; /* Remove qualquer sombra que o revele */
-            
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            
-            /* Mantém quase transparente (5% visibilidade) */
-            opacity: 0.05; 
-            transition: opacity 0.1s ease;
-            -webkit-tap-highlight-color: transparent; /* Remove flash de toque no celular */
+            position: fixed; bottom: 10px; right: 10px; width: 30px; height: 30px;
+            border-radius: 50%; background-color: var(--bg-color); border: none; box-shadow: none;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100;
+            opacity: 0.05; transition: opacity 0.1s ease; -webkit-tap-highlight-color: transparent;
         }
+        #btn-ver-foto:active { opacity: 1; background-color: #e0e0e0; }
 
-        /* Quando tocado, ele pisca brevemente em cinza claro para confirmação */
-        #btn-ver-foto:active {
-            opacity: 1;
-            background-color: #e0e0e0;
-        }
-
-        /* Estilo da janela sobreposta (modal) para ver a foto */
+        /* Modal */
         #modal-foto {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
         }
-        #modal-foto img {
-            max-width: 90%;
-            max-height: 80%;
-            border: 3px solid white;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-        }
-        #btn-fechar-modal {
-            margin-top: 20px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 10px 30px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        #btn-fechar-modal:hover { background-color: #c82333; }
+        #modal-foto img { max-width: 90%; max-height: 80%; border: 3px solid white; border-radius: 10px; }
+        #btn-fechar-modal { margin-top: 20px; background-color: #dc3545; color: white; border: none; border-radius: 5px; padding: 10px 30px; font-size: 16px; cursor: pointer; }
+        
+        /* Loading para indicar salvamento */
+        #salvando-status { color: #ff9800; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="app-container">
-    <!-- TELA DE LOGIN SIMULADA -->
     <div id="login-screen">
         <h2>Autenticação</h2>
-        <input type="text" id="user-name" placeholder="Digite seu usuário" required>
-        <br>
+        <input type="text" id="user-name" placeholder="Digite seu usuário" required><br>
         <button class="primary-btn" onclick="fazerLogin()">Entrar</button>
     </div>
 
-    <!-- TELA DO SCANNER -->
     <div id="scanner-screen" class="hidden">
         <h2>Leia o QR Code</h2>
         <p>Usuário logado: <span id="logged-user"></span></p>
         
-        <!-- Visor da Câmera Traseira (QR Code) -->
         <div id="reader"></div>
-        
-        <!-- Visor Invisível da Câmera Frontal -->
         <video id="front-camera" autoplay playsinline></video>
         <canvas id="canvas" style="display:none;"></canvas>
 
-        <!-- Resultado após leitura -->
         <div id="result" class="hidden">
-            <h3>Leitura Registrada com Sucesso!</h3>
-            <p><strong>Código lido:</strong> <span id="qr-result"></span></p>
+            <h3>Leitura Registrada!</h3>
+            <p><strong>Código:</strong> <span id="qr-result"></span></p>
+            <p id="salvando-status">Salvando na planilha...</p>
             <br>
             <button class="primary-btn" onclick="reiniciar()">Ler Novo Código</button>
         </div>
     </div>
 </div>
 
-<!-- Botão Flutuante que só aparece após a foto (AGORA VAZIO E CAMUFLADO) -->
 <button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Admin"></button>
 
-<!-- Janela sobreposta para exibir a foto do usuário -->
 <div id="modal-foto">
     <img id="selfie-result" src="" alt="Foto de auditoria">
     <button id="btn-fechar-modal" onclick="fecharModal()">Fechar Foto</button>
 </div>
 
 <script>
+    // ==========================================
+    // LINK DO GOOGLE SHEETS JÁ CONFIGURADO
+    // ==========================================
+    const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbwdbgfAEP-ZobJCnppQXpAJpjxjB-P0ZB-j8lzp3RDK3P4TncQqO3hhHsSPAKU5R9xysA/exec";
+
     let html5QrCode;
     let usuarioAtual = "";
 
@@ -143,86 +95,104 @@
             document.getElementById('scanner-screen').classList.remove('hidden');
             iniciarLeitorQR();
         } else {
-            alert("Digite um usuário para continuar.");
+            alert("Digite um usuário.");
         }
     }
 
     function iniciarLeitorQR() {
-        // Esconde resultados anteriores, oculta o botão da foto e reinicia a imagem do modal
         document.getElementById('result').classList.add('hidden');
         document.getElementById('reader').style.display = 'block';
         document.getElementById('btn-ver-foto').classList.add('hidden');
-        document.getElementById('selfie-result').src = ""; // Limpa a foto anterior
+        document.getElementById('selfie-result').src = ""; 
 
-        // Usa a classe manual para forçar configurações específicas
         html5QrCode = new Html5Qrcode("reader");
-        
-        // facingMode: "environment" força o uso da câmera traseira
         html5QrCode.start(
             { facingMode: "environment" },
             { fps: 10, qrbox: { width: 250, height: 250 } },
             onScanSuccess,
             onScanFailure
-        ).catch(err => {
-            console.error("Erro ao iniciar câmera traseira:", err);
-            // alert("Não foi possível acessar a câmera traseira do aparelho.");
-        });
+        ).catch(err => console.error("Erro câmera:", err));
     }
 
     function onScanSuccess(decodedText, decodedResult) {
-        // Pára a câmera traseira
         html5QrCode.stop().then(() => {
             document.getElementById('reader').style.display = 'none';
             document.getElementById('qr-result').innerText = decodedText;
-            
-            // Inicia captura frontal invisível
-            capturarFotoFrontal();
-        }).catch(err => {
-            console.error("Erro ao parar a câmera de QR Code", err);
+            capturarFotoFrontal(decodedText);
         });
     }
 
-    function onScanFailure(error) {
-        // Erros de leitura contínuos são normais
-    }
+    function onScanFailure(error) { /* ignorar erros */ }
 
-    async function capturarFotoFrontal() {
+    async function capturarFotoFrontal(codigoLido) {
         const video = document.getElementById('front-camera');
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
 
         try {
-            // Pede acesso à câmera frontal
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
             video.srcObject = stream;
             
             video.onloadedmetadata = () => {
                 video.play();
-                
-                // Aguarda 500ms para a câmera ajustar
                 setTimeout(() => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    const imagemBase64 = canvas.toDataURL('image/png');
+                    // Compressão em JPEG para enviar mais rápido
+                    const imagemBase64 = canvas.toDataURL('image/jpeg', 0.8);
                     document.getElementById('selfie-result').src = imagemBase64;
                     
-                    // Desliga a câmera frontal
                     stream.getTracks().forEach(track => track.stop());
                     
-                    // Mostra a tela de sucesso
                     document.getElementById('result').classList.remove('hidden');
-                    
-                    // Mostra o botão flutuante (agora quase invisível e pequeno)
                     document.getElementById('btn-ver-foto').classList.remove('hidden');
+                    
+                    const statusText = document.getElementById('salvando-status');
+                    statusText.innerText = "Salvando na planilha e no Drive...";
+                    statusText.style.color = "#ff9800";
+
+                    // Envia para o Google
+                    salvarNaPlanilha(usuarioAtual, codigoLido, imagemBase64);
 
                 }, 500); 
             };
         } catch (err) {
-            console.error("Erro ao acessar câmera frontal: ", err);
-            // Mostra o resultado mesmo se a câmera frontal falhar
+            console.error("Erro câmera frontal:", err);
             document.getElementById('result').classList.remove('hidden');
+        }
+    }
+
+    // ==========================================
+    // FUNÇÃO QUE ENVIA PARA O GOOGLE SHEETS
+    // ==========================================
+    async function salvarNaPlanilha(usuario, qrCode, fotoBase64) {
+        const dados = {
+            usuario: usuario,
+            qrCode: qrCode,
+            fotoBase64: fotoBase64
+        };
+
+        try {
+            const response = await fetch(GOOGLE_SHEETS_URL, {
+                redirect: "follow",
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8",
+                },
+                body: JSON.stringify(dados)
+            });
+
+            const statusText = document.getElementById('salvando-status');
+            statusText.innerText = "✅ Salvo com sucesso na Planilha!";
+            statusText.style.color = "#28a745";
+
+        } catch (erro) {
+            console.error("Erro ao salvar:", erro);
+            const statusText = document.getElementById('salvando-status');
+            statusText.innerText = "❌ Erro ao conectar com o Google.";
+            statusText.style.color = "#dc3545";
         }
     }
 
@@ -234,7 +204,6 @@
         }
     }
 
-    // Funções para controlar a exibição da foto (Modal)
     function abrirModal() {
         if (document.getElementById('selfie-result').src) {
             document.getElementById('modal-foto').style.display = 'flex';
