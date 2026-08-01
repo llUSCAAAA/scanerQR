@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Auditoria</title>
+    <!-- Biblioteca para ler o QR Code -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        #app-container { max-width: 500px; margin: 0 auto; }
+        #reader { width: 100%; margin-bottom: 20px; }
+        #front-camera { width: 100%; display: none; transform: scaleX(-1); }
+        .hidden { display: none; }
+        button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- TELA DE LOGIN SIMULADA -->
+    <div id="login-screen">
+        <h2>Autenticação</h2>
+        <input type="text" id="user-name" placeholder="Digite seu usuário" required>
+        <button onclick="fazerLogin()">Entrar</button>
+    </div>
+
+    <!-- TELA DO SCANNER -->
+    <div id="scanner-screen" class="hidden">
+        <h2>Leia o QR Code</h2>
+        <p>Usuário logado: <span id="logged-user"></span></p>
+        
+        <!-- Visor da Câmera Traseira (QR Code) -->
+        <div id="reader"></div>
+        
+        <!-- Visor Invisível da Câmera Frontal -->
+        <video id="front-camera" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <div id="result" class="hidden">
+            <h3>Resultado salvo!</h3>
+            <p><strong>Código lido:</strong> <span id="qr-result"></span></p>
+            <p><strong>Foto tirada:</strong></p>
+            <img id="selfie-result" width="200" style="border: 2px solid green;">
+            <br>
+            <button onclick="reiniciar()">Ler Novo Código</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let html5QrcodeScanner;
+    let usuarioAtual = "";
+
+    // 1. FUNÇÃO DE LOGIN
+    function fazerLogin() {
+        const input = document.getElementById('user-name').value;
+        if (input) {
+            usuarioAtual = input;
+            document.getElementById('logged-user').innerText = usuarioAtual;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('scanner-screen').classList.remove('hidden');
+            iniciarLeitorQR();
+        } else {
+            alert("Digite um usuário para continuar.");
+        }
+    }
+
+    // 2. INICIAR LEITOR DE QR CODE (Câmera Traseira)
+    function iniciarLeitorQR() {
+        document.getElementById('result').classList.add('hidden');
+        document.getElementById('reader').style.display = 'block';
+
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 10, qrbox: 250 }, false);
+        
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    // 3. QUANDO O QR CODE FOR LIDO
+    function onScanSuccess(decodedText, decodedResult) {
+        // Pára o leitor de QR Code para liberar a câmera
+        html5QrcodeScanner.clear().then(() => {
+            document.getElementById('reader').style.display = 'none';
+            document.getElementById('qr-result').innerText = decodedText;
+            
+            // Inicia a captura da foto frontal
+            capturarFotoFrontal();
+        });
+    }
+
+    function onScanFailure(error) {
+        // Ignora erros contínuos enquanto busca um código
+    }
+
+    // 4. CAPTURAR FOTO COM A CÂMERA FRONTAL
+    async function capturarFotoFrontal() {
+        const video = document.getElementById('front-camera');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        try {
+            // Solicita acesso à câmera frontal (facingMode: "user")
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            video.srcObject = stream;
+            
+            // Aguarda o vídeo carregar para tirar a foto
+            video.onloadedmetadata = () => {
+                video.play();
+                
+                // Dá um pequeno atraso de meio segundo para a câmera focar e clarear
+                setTimeout(() => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    // Desenha o quadro atual do vídeo no canvas
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // Transforma a imagem em base64 (texto) para poder salvar
+                    const imagemBase64 = canvas.toDataURL('image/png');
+                    document.getElementById('selfie-result').src = imagemBase64;
+                    
+                    // Desliga a câmera frontal
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Mostra o resultado final
+                    document.getElementById('result').classList.remove('hidden');
+
+                    // AQUI VOCÊ ENVIARIA OS DADOS PARA O SEU BANCO DE DADOS
+                    console.log("Enviar para o banco: ", {
+                        usuario: usuarioAtual,
+                        qrCode: document.getElementById('qr-result').innerText,
+                        fotoRosto: imagemBase64,
+                        dataHora: new Date()
+                    });
+
+                }, 500); 
+            };
+        } catch (err) {
+            console.error("Erro ao acessar câmera frontal: ", err);
+            alert("Foi necessário acesso à câmera frontal para registrar a leitura.");
+        }
+    }
+
+    function reiniciar() {
+        iniciarLeitorQR();
+    }
+</script>
+</body>
+</html>
